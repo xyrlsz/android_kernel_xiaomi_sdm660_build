@@ -97,10 +97,18 @@ CFG="out/.config"
 # ============================================
 # BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES 为空时，Image.gz-dtb 会把 dts 目录下所有 .dtb
 # 全部拼接进内核镜像（几百 MB），所以必须指定本机型对应的 dtb（不带 .dtb 后缀）。
+# 注意：这个名字是相对 arch/arm64/boot/dts/ 的路径
+# （arch/arm64/boot/Makefile: DTB_OBJS := $(addprefix $(obj)/dts/,$(DTB_LIST))），
+# 因此必须带 qcom/ 子目录，否则 Image.gz-dtb 会报 "No rule to make target"。
+DTB_NAME="qcom/sdm660-mtp-clover"
+if [ ! -f "arch/arm/boot/dts/${DTB_NAME}.dts" ]; then
+  echo "::error::找不到 arch/arm/boot/dts/${DTB_NAME}.dts；请确认 defconfig 与 appended DTB 名称"
+  exit 1
+fi
 ./scripts/config --file "$CFG" \
   -e BUILD_ARM64_APPENDED_DTB_IMAGE -e IMG_GZ_DTB
 ./scripts/config --file "$CFG" \
-  --set-str BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES "sdm660-mtp-clover"
+  --set-str BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES "$DTB_NAME"
 
 # 自动处理依赖
 make O=out ARCH=arm64 SUBARCH=arm64 \
@@ -108,6 +116,14 @@ make O=out ARCH=arm64 SUBARCH=arm64 \
   HOSTCC="ccache clang" \
   KCFLAGS="-gdwarf-4" \
   olddefconfig
+
+echo "===== appended DTB 配置检查 ====="
+if ! grep -q "^CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES=\"${DTB_NAME}\"$" out/.config; then
+  echo "::error::CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES 未生效（应为 \"${DTB_NAME}\"）"
+  grep -E "CONFIG_BUILD_ARM64_APPENDED_DTB" out/.config || true
+  exit 1
+fi
+echo "CONFIG_BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES=\"${DTB_NAME}\" OK"
 
 echo "===== Droidspaces 必要配置检查 ====="
 grep -E "CONFIG_(SYSCTL|SYSVIPC|POSIX_MQUEUE|NAMESPACES|PID_NS|UTS_NS|IPC_NS|NET_NS|USER_NS|SECCOMP|SECCOMP_FILTER|CGROUPS|CGROUP_DEVICE|CGROUP_PIDS|MEMCG|CGROUP_SCHED|FAIR_GROUP_SCHED|CGROUP_FREEZER|CGROUP_NET_PRIO|DEVTMPFS|OVERLAY_FS|TMPFS_POSIX_ACL|TMPFS_XATTR|FW_LOADER|FW_LOADER_USER_HELPER|FW_LOADER_COMPRESS|VETH|BRIDGE|NETFILTER|BRIDGE_NETFILTER|NETFILTER_ADVANCED|NF_CONNTRACK|IP_NF_IPTABLES|IP_NF_FILTER|NF_NAT|NF_TABLES|IP_NF_TARGET_MASQUERADE|NETFILTER_XT_TARGET_MASQUERADE|NETFILTER_XT_TARGET_TCPMSS|NETFILTER_XT_MATCH_ADDRTYPE|NF_CONNTRACK_NETLINK|NF_NAT_REDIRECT|IP_ADVANCED_ROUTER|IP_MULTIPLE_TABLES|NF_CONNTRACK_IPV4|NF_NAT_IPV4|IP_NF_NAT)=" out/.config || true
