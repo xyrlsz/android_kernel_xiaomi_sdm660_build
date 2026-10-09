@@ -12,7 +12,7 @@ BAKASU_VER=$(cat /tmp/bakasu_tag.txt 2>/dev/null || echo "unknown")
 
 sed -i "s/^kernel.string=.*/kernel.string=Baka-SU + SUSFS ${BAKASU_VER} Kernel for Xiaomi Mi Pad 4 (clover) by GitHub Actions/" anykernel.sh
 sed -i 's/^do.devicecheck=.*/do.devicecheck=1/' anykernel.sh
-sed -i 's/^do.modules=.*/do.modules=1/' anykernel.sh
+# do.modules 由 14-copy-kernel.sh 按实际是否有 .ko 决定，这里不设置
 sed -i 's/^do.systemless=.*/do.systemless=0/' anykernel.sh
 sed -i 's/^do.cleanup=.*/do.cleanup=1/' anykernel.sh
 sed -i 's/^do.cleanuponabort=.*/do.cleanuponabort=0/' anykernel.sh
@@ -30,6 +30,6 @@ grep -E 'kernel.string|do.devicecheck|do.modules|device.name1|^BLOCK=|^IS_SLOT_D
 
 # 上面三条 sed 若因上游变量改名而失效，会被静默忽略并打出不可刷入的 zip，所以这里强制校验
 for key in 'BLOCK=boot;' 'IS_SLOT_DEVICE=auto;' 'RAMDISK_COMPRESSION=auto;' \
-           'device.name1=clover' 'do.modules=1' 'do.devicecheck=1'; do
+           'device.name1=clover' 'do.devicecheck=1'; do
   grep -qF "$key" anykernel.sh || { echo "::error::anykernel.sh 未正确设置（$key）"; exit 1; }
 done

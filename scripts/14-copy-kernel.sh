@@ -22,14 +22,25 @@ else
   exit 1
 fi
 
-# do.systemless=0 时，AnyKernel3 按 .ko 在 modules/ 里的相对路径决定写入位置：
-# modules/vendor/lib/modules/x.ko -> /vendor/lib/modules/x.ko（并按 vendor 目录打 SELinux 标签）。
-# crDroid/LineageOS 的 sdm660 机型默认把内核模块装到 /vendor/lib/modules。
-MODDIR="$AK/modules/vendor/lib/modules"
-rm -rf "$AK/modules"
-mkdir -p "$MODDIR"
-find out -name '*.ko' -exec cp -v {} "$MODDIR/" \;
-echo "模块数量: $(find "$AK/modules" -name '*.ko' | wc -l)"
+# 本内核树的 clover_defconfig 没有任何 =m 项（MODPOST 0 modules），因此通常没有 .ko。
+# 而且当前 AnyKernel3 master 的 ak3-core.sh 已不再处理 modules/ 安装，
+# 所以只在确实存在 .ko 时才打包模块目录，避免 zip 里出现空目录 / do.modules 与实际不符。
+MODCOUNT=$(find out -name '*.ko' | wc -l)
+if [ "$MODCOUNT" -gt 0 ]; then
+  # do.systemless=0 时，AnyKernel3 按 .ko 在 modules/ 里的相对路径决定写入位置：
+  # modules/vendor/lib/modules/x.ko -> /vendor/lib/modules/x.ko。
+  # crDroid/LineageOS 的 sdm660 机型默认把内核模块装到 /vendor/lib/modules。
+  MODDIR="$AK/modules/vendor/lib/modules"
+  rm -rf "$AK/modules"
+  mkdir -p "$MODDIR"
+  find out -name '*.ko' -exec cp -v {} "$MODDIR/" \;
+  sed -i 's/^do.modules=.*/do.modules=1/' "$AK/anykernel.sh"
+else
+  rm -rf "$AK/modules"
+  sed -i 's/^do.modules=.*/do.modules=0/' "$AK/anykernel.sh"
+fi
+echo "模块数量: $MODCOUNT"
+grep -E '^do.modules=' "$AK/anykernel.sh"
 
 echo "===== AnyKernel3 内容 ====="
 ls -lh "$AK"/Image.gz*
