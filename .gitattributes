@@ -1,0 +1,2 @@
+# Shell 脚本必须使用 LF 行尾，否则在 Linux runner 上会因 CRLF 而无法执行
+*.sh text eol=lf
