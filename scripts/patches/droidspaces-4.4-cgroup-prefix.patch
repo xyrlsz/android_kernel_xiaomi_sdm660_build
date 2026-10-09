@@ -1,0 +1,30 @@
+--- a/kernel/cgroup.c
++++ b/kernel/cgroup.c
+@@ -3726,10 +3726,27 @@
+ 		spin_lock_irq(&cgroup_file_kn_lock);
+ 		cfile->kn = kn;
+ 		spin_unlock_irq(&cgroup_file_kn_lock);
+ 	}
+ 
++	/*
++	 * Droidspaces/LXC: on a hierarchy mounted with CGRP_ROOT_NOPREFIX the
++	 * controller files lose their subsystem prefix (cpuset.cpus becomes
++	 * cpus). runc/LXC still open the prefixed name and fail with
++	 * "no such file or directory", so expose the prefixed name as an
++	 * additional symlink to the same file.
++	 */
++	if (cft->ss && (cgrp->root->flags & CGRP_ROOT_NOPREFIX) &&
++	    !(cft->flags & CFTYPE_NO_PREFIX)) {
++		char pname[CGROUP_FILE_NAME_MAX];
++
++		snprintf(pname, CGROUP_FILE_NAME_MAX, "%s.%s",
++			 cgroup_on_dfl(cgrp) ? cft->ss->name : cft->ss->legacy_name,
++			 cft->name);
++		kernfs_create_link(cgrp->kn, pname, kn);
++	}
++
+ 	return 0;
+ }
+ 
+ /**
+  * cgroup_addrm_files - add or remove files to a cgroup directory
