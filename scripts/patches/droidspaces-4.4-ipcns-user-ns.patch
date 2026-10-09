@@ -1,0 +1,35 @@
+--- a/ipc/namespace.c
++++ b/ipc/namespace.c
+@@ -32,24 +32,30 @@
+ 		return ERR_PTR(err);
+ 	}
+ 	ns->ns.ops = &ipcns_operations;
+ 
+ 	atomic_set(&ns->count, 1);
++	/*
++	 * mq_init_ns() mounts the mqueue filesystem, and mqueue_mount()
++	 * hands ns->user_ns to mount_ns().  ns comes from kmalloc(), so
++	 * the field still holds garbage here and sget_userns() would
++	 * dereference it in get_user_ns().  Initialize it first.
++	 */
++	ns->user_ns = get_user_ns(user_ns);
+ 	err = mq_init_ns(ns);
+ 	if (err) {
+ 		ns_free_inum(&ns->ns);
++		put_user_ns(ns->user_ns);
+ 		kfree(ns);
+ 		return ERR_PTR(err);
+ 	}
+ 	atomic_inc(&nr_ipc_ns);
+ 
+ 	sem_init_ns(ns);
+ 	msg_init_ns(ns);
+ 	shm_init_ns(ns);
+ 
+-	ns->user_ns = get_user_ns(user_ns);
+-
+ 	return ns;
+ }
+ 
+ struct ipc_namespace *copy_ipcs(unsigned long flags,
+ 	struct user_namespace *user_ns, struct ipc_namespace *ns)

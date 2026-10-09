@@ -1,2 +1,4 @@
 # Shell 脚本必须使用 LF 行尾，否则在 Linux runner 上会因 CRLF 而无法执行
 *.sh text eol=lf
+# 内核补丁必须使用 LF 行尾，带 CR 的补丁在 git apply 时会整段上下文失配
+*.patch text eol=lf
