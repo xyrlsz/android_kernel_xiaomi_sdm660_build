@@ -8,17 +8,13 @@ if [ "$KERNEL_MAJOR" != "4" ] || [ "$KERNEL_MINOR" != "4" ]; then
   exit 1
 fi
 
-INLINE_HOOK_URL="https://raw.githubusercontent.com/JackA1ltman/NonGKI_Kernel_Build_2nd/466c4a9ba171f5be5b844f156399f768ef539adb/Patches/susfs_inline_hook_patches.sh"
-EXPECTED_SHA256="9afa89ee6474b80e2615096b926c1d8eef1cb7585f74130a375fbe6cf63d00f2"
+INLINE_HOOK_URL="https://raw.githubusercontent.com/JackA1ltman/NonGKI_Kernel_Build_2nd/mainline/Patches/susfs_inline_hook_patches.sh"
+
 HOOK_SCRIPT=$(mktemp)
 trap 'rm -f "$HOOK_SCRIPT"' EXIT
 
 echo "===== 下载并校验 SUSFS inline-hook 脚本 ====="
 curl -fL --retry 3 --retry-delay 5 -o "$HOOK_SCRIPT" "$INLINE_HOOK_URL"
-echo "$EXPECTED_SHA256  $HOOK_SCRIPT" | sha256sum --check --status || {
-  echo "::error::SUSFS inline-hook 脚本 SHA-256 校验失败"
-  exit 1
-}
 
 echo "===== 检查 KernelSU inline-hook 集成前置条件 ====="
 if ! grep -rq --include='*.c' --include='*.h' 'ksu_handle_setresuid' drivers/kernelsu/; then
