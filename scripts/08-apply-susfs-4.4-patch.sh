@@ -8,7 +8,7 @@ if [ "$KERNEL_MAJOR" != "4" ] || [ "$KERNEL_MINOR" != "4" ]; then
   exit 1
 fi
 
-PATCH_URL="https://raw.githubusercontent.com/JackA1ltman/NonGKI_Kernel_Build_2nd/main/Patches/Patch/susfs_patch_to_4.4.patch"
+PATCH_URL="https://raw.githubusercontent.com/JackA1ltman/NonGKI_Kernel_Build_2nd/mainline/Patches/Patch/susfs_patch_to_4.4.patch"
  
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ADAPTATION_PATCH="$SCRIPT_DIR/patches/susfs-4.4-kallsyms-adaptation.patch"
