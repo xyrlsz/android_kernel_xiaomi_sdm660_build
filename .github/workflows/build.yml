@@ -152,6 +152,18 @@ jobs:
       - name: Create AnyKernel3 zip
         run: bash "$GITHUB_WORKSPACE/builder/scripts/15-package-anykernel3.sh"
 
+      # ============ 13.5 下载 Baka-SU Manager APK ============
+      # Manager APK 必须与内核里集成的 Baka-SU commit 一致：脚本读取 8.7 步骤写下的
+      # /tmp/bakasu_commit.txt，去 Baka-SU 的 Build Manager 工作流产物里找同一 commit 的
+      # Manager-release。找不到就跳过（manager_found=false），不影响内核产物。
+      # 下载 Actions 产物需要认证（匿名请求 401），所以这里传 GITHUB_TOKEN。
+      - name: Download Baka-SU Manager APK
+        id: manager
+        continue-on-error: true
+        run: bash "$GITHUB_WORKSPACE/builder/scripts/16-download-bakasu-manager.sh"
+        env:
+          GH_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # ============ 14. 上传 AnyKernel3 zip ============
       - name: Upload AnyKernel3 zip
         if: success()
@@ -159,6 +171,15 @@ jobs:
         with:
           name: boot-clover-bakasu-susfs-anykernel-${{ github.run_number }}
           path: ${{ github.workspace }}/boot-clover-bakasu-susfs-*-anykernel-${{ github.run_number }}.zip
+          retention-days: 7
+
+      # ============ 14.5 上传 Baka-SU Manager APK ============
+      - name: Upload Baka-SU Manager APK
+        if: steps.manager.outputs.manager_found == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: bakasu-manager-${{ github.run_number }}
+          path: ${{ github.workspace }}/bakasu-manager/*.apk
           retention-days: 7
 
       # ============ 15. 上传日志 ============
