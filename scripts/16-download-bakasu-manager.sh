@@ -72,8 +72,11 @@ if ! curl -fLsS --retry 3 --retry-delay 2 \
 fi
 
 unzip -tq "$TMP_DIR/manager.zip"
+# 必须真正解压后再找 APK：-t 只做完整性检查，磁盘上不会有 .apk 文件
+mkdir -p "$TMP_DIR/manager"
+unzip -oq "$TMP_DIR/manager.zip" -d "$TMP_DIR/manager"
 mkdir -p "$GITHUB_WORKSPACE/bakasu-manager"
-mapfile -d '' MANAGER_APKS < <(find "$TMP_DIR" -type f -iname '*.apk' -print0)
+mapfile -d '' MANAGER_APKS < <(find "$TMP_DIR/manager" -type f -iname '*.apk' -print0)
 if [ "${#MANAGER_APKS[@]}" -eq 0 ]; then
   echo "::notice::Manager-release artifact contains no APK for commit $KSU_COMMIT; skipping Manager APK"
   echo "manager_found=false" >> "$GITHUB_OUTPUT"
