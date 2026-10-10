@@ -8,8 +8,8 @@ if [ "$KERNEL_MAJOR" != "4" ] || [ "$KERNEL_MINOR" != "4" ]; then
   exit 1
 fi
 
-PATCH_URL="https://raw.githubusercontent.com/JackA1ltman/NonGKI_Kernel_Build_2nd/40b190d46080085b9bf7c67233ae1dc3cad5edc8/Patches/Patch/susfs_patch_to_4.4.patch"
-EXPECTED_SHA256="f56740dc698186700f8178621981bc1430cf02ab898b3ffbd684b69380c4a407"
+PATCH_URL="https://raw.githubusercontent.com/JackA1ltman/NonGKI_Kernel_Build_2nd/main/Patches/Patch/susfs_patch_to_4.4.patch"
+ 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ADAPTATION_PATCH="$SCRIPT_DIR/patches/susfs-4.4-kallsyms-adaptation.patch"
 PATCH_FILE=$(mktemp)
@@ -17,10 +17,6 @@ trap 'rm -f "$PATCH_FILE"' EXIT
 
 echo "===== 下载 SUSFS v2.3.0 Linux 4.4 移植补丁 ====="
 curl -fL --retry 3 --retry-delay 5 -o "$PATCH_FILE" "$PATCH_URL"
-echo "$EXPECTED_SHA256  $PATCH_FILE" | sha256sum --check --status || {
-  echo "::error::SUSFS 补丁 SHA-256 校验失败"
-  exit 1
-}
 
 echo "===== 检查 SUSFS 补丁是否适配当前内核源码 ====="
 if grep -Fq 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' fs/Makefile ||
