@@ -171,12 +171,10 @@ CFG="out/.config"
 # ============================================
 # BUILD_ARM64_APPENDED_DTB_IMAGE_NAMES 为空时，Image.gz-dtb 会把 dts 目录下所有 .dtb
 # 全部拼接进内核镜像（几百 MB），所以必须指定本机型对应的 dtb（不带 .dtb 后缀）。
-# 注意：这个名字是相对 arch/arm64/boot/dts/ 的路径
-# （arch/arm64/boot/Makefile: DTB_OBJS := $(addprefix $(obj)/dts/,$(DTB_LIST))），
-# 因此必须带 qcom/ 子目录，否则 Image.gz-dtb 会报 "No rule to make target"。
-DTB_NAME="qcom/sdm660-mtp-clover"
-if [ ! -f "arch/arm/boot/dts/${DTB_NAME}.dts" ]; then
-  echo "::error::找不到 arch/arm/boot/dts/${DTB_NAME}.dts；请确认 defconfig 与 appended DTB 名称"
+# 设备树位于 vendor/qcom 子目录，DTB 名称也必须包含这个相对路径。
+DTB_NAME="vendor/qcom/sdm660-mtp-clover"
+if [ ! -f "arch/arm64/boot/dts/${DTB_NAME}.dts" ]; then
+  echo "::error::找不到 arch/arm64/boot/dts/${DTB_NAME}.dts；请确认所选 clover 设备树存在"
   exit 1
 fi
 ./scripts/config --file "$CFG" \
