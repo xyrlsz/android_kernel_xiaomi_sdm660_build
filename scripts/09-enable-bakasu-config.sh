@@ -11,6 +11,8 @@ echo "===== 启用 Baka-SU + SUSFS inline-hook 配置 ====="
 ./scripts/config --file "$CFG" \
   -e KSU \
   -e THREAD_INFO_IN_TASK \
+  -e KALLSYMS \
+  -e KALLSYMS_ALL \
   -e KSU_SUSFS \
   -d KSU_MANUAL_HOOK \
   -d KSU_TRACEPOINT_HOOK
@@ -43,7 +45,7 @@ make O=out ARCH=arm64 SUBARCH=arm64 \
 
 echo ""
 echo "===== Baka-SU + SUSFS inline-hook 配置检查 ====="
-grep -E "CONFIG_(KSU|THREAD_INFO_IN_TASK|KPROBES)" out/.config || true
+grep -E "CONFIG_(KSU|THREAD_INFO_IN_TASK|KALLSYMS(_ALL)?|KPROBES)" out/.config || true
 
 if ! grep -q '^CONFIG_KSU_SUSFS=y$' out/.config; then
   echo "::error::CONFIG_KSU_SUSFS 未启用；请确认所选 Baka-SU 版本包含 SUSFS 支持及其依赖满足"
@@ -52,6 +54,11 @@ fi
 
 if ! grep -q '^CONFIG_THREAD_INFO_IN_TASK=y$' out/.config; then
   echo "::error::CONFIG_THREAD_INFO_IN_TASK 未启用；Baka-SU 的 KSU_SUSFS 依赖它（SUSFS 用 thread_info.flags 存状态）"
+  exit 1
+fi
+
+if ! grep -q '^CONFIG_KALLSYMS_ALL=y$' out/.config; then
+  echo "::error::CONFIG_KALLSYMS_ALL 未启用；Baka-SU 静态符号解析依赖完整 kallsyms 符号表"
   exit 1
 fi
 
