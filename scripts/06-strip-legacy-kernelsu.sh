@@ -13,8 +13,45 @@ STRIP_PATCH="$SCRIPT_DIR/patches/strip-legacy-kernelsu.patch"
 
 echo "===== 检查是否还残留旧 KernelSU ====="
 if [ ! -d drivers/kernelsu ]; then
-  echo "::error::drivers/kernelsu 不存在；内核源码基线可能已变化，请重新确认补丁基线"
-  exit 1
+  LEGACY_HOOKS=(
+    'ksu_handle_execveat'
+    'ksu_handle_faccessat'
+    'ksu_handle_vfs_read'
+    'ksu_handle_stat'
+    'ksu_handle_devpts'
+    'ksu_handle_input_handle_event'
+  )
+  LEGACY_SOURCES=(
+    fs/exec.c
+    fs/open.c
+    fs/read_write.c
+    fs/stat.c
+    fs/devpts/inode.c
+    drivers/input/input.c
+  )
+  FOUND_LEGACY_HOOK=0
+
+  for index in "${!LEGACY_HOOKS[@]}"; do
+    source=${LEGACY_SOURCES[$index]}
+    hook=${LEGACY_HOOKS[$index]}
+    if [ -f "$source" ] && grep -qF "$hook" "$source"; then
+      echo "::error::发现旧 KernelSU hook $hook，但 drivers/kernelsu 不存在（位置：$source）"
+      FOUND_LEGACY_HOOK=1
+    fi
+  done
+
+  if grep -q 'drivers/kernelsu' drivers/Makefile drivers/Kconfig; then
+    echo "::error::drivers/kernelsu 不存在，但 drivers/Makefile 或 drivers/Kconfig 仍引用它"
+    FOUND_LEGACY_HOOK=1
+  fi
+
+  if [ "$FOUND_LEGACY_HOOK" -ne 0 ]; then
+    echo "::error::KernelSU 源码布局与已知基线不匹配，拒绝继续以免留下旧 hook"
+    exit 1
+  fi
+
+  echo "✓ 内核树没有旧版 KernelSU 源码、hook 或注册项，无需清理"
+  exit 0
 fi
 
 echo "===== 检查旧 KernelSU hook 是否与预期一致 ====="
