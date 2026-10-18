@@ -9,6 +9,13 @@ ccache -s
 
 START_TIME=$(date +%s)
 
+BUILD_TARGETS=(Image.gz-dtb)
+if grep -q '^CONFIG_MODULES=y$' out/.config; then
+  BUILD_TARGETS+=(modules)
+else
+  echo "CONFIG_MODULES 未启用，跳过 modules 目标"
+fi
+
 set +e
 make -j"$(nproc)" O=out ARCH=arm64 SUBARCH=arm64 \
   CC="ccache clang" \
@@ -17,7 +24,7 @@ make -j"$(nproc)" O=out ARCH=arm64 SUBARCH=arm64 \
   CROSS_COMPILE=aarch64-linux-android- \
   CROSS_COMPILE_ARM32=arm-linux-androideabi- \
   KCFLAGS="-gdwarf-4" \
-  Image.gz-dtb modules \
+  "${BUILD_TARGETS[@]}" \
   2>&1 | tee build.log
 BUILD_STATUS=${PIPESTATUS[0]}
 set -e
