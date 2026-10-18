@@ -6,8 +6,8 @@ export PATH="/home/runner/clang/bin:/tmp/gcc64/bin:/tmp/gcc32/bin:$PATH"
 CFG="out/.config"
 
 echo "===== 启用 Baka-SU + SUSFS inline-hook 配置 ====="
-# THREAD_INFO_IN_TASK 是 Baka-SU 的 KSU_SUSFS 的依赖项。sdm660 4.4 的 arch/arm64/Kconfig
-# 里已经 select THREAD_INFO_IN_TASK，正常情况下不需要手动打开，这里显式写一遍更直观。
+# THREAD_INFO_IN_TASK 是 Baka-SU 的 KSU_SUSFS 依赖项；这里显式启用并由 olddefconfig
+# 校验依赖是否满足。
 ./scripts/config --file "$CFG" \
   -e KSU \
   -e THREAD_INFO_IN_TASK \
@@ -15,7 +15,7 @@ echo "===== 启用 Baka-SU + SUSFS inline-hook 配置 ====="
   -d KSU_MANUAL_HOOK \
   -d KSU_TRACEPOINT_HOOK
 
-echo "===== 启用 SUSFS 各子功能（4.4 移植补丁里均已实现）====="
+echo "===== 启用 SUSFS 各子功能（4.4 / 4.19 移植补丁均已实现）====="
 ./scripts/config --file "$CFG" \
   -e KSU_SUSFS_SUS_PATH \
   -e KSU_SUSFS_SUS_MOUNT \

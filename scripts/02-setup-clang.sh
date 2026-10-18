@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# sdm660 是 msm-4.4 内核树，clang 16+ 已经无法编译它（旧内核语法/内建函数都被移除）。
-# 因此这里使用 LineageOS 的 clang-r416183b（Clang 12），这是 sdm660 4.4 上验证过的版本。
+# sdm660 的旧版内核树使用兼容性较好的 clang-r416183b（Clang 12），避免新版本
+# Clang 对旧内核语法及内建函数的兼容性问题。
 CLANG_DIR="/home/runner/clang"
 rm -rf "$CLANG_DIR"
 

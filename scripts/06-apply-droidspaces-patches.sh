@@ -1,19 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 上游 Droidspaces 的 non-GKI 补丁是按 4.9+ 的目录结构写的，直接套在本 4.4 树上
-# 一个都落不下去（会被静默跳过，等于什么都没做）：
+# 上游 Droidspaces 的 non-GKI 补丁按较新内核的目录结构编写，需按当前源码布局选择补丁：
 #   01 fix_kernel_panic_in_xt_qtaguid.patch    -> net/netfilter/xt_qtaguid.c
 #      本树没有 qtaguid（Android 9 起内核已移除该驱动），这条 panic 路径不存在。
-#   02 fix_restore cgroup file prefix handling -> kernel/cgroup/cgroup.c
-#      4.4 的 cgroup 代码在 kernel/cgroup.c，且 cgroup v1 的前缀取 legacy_name
-#      而不是 name（见 cgroup_file_name()），所以 02 必须按本树重新生成。
+#   02 fix_restore cgroup file prefix handling -> kernel/cgroup.c (4.4)
+#                                             or kernel/cgroup/cgroup.c (4.19+)
+#      4.19+ 使用 Droidspaces 仓库的上游补丁；4.4 使用本地适配补丁。
 # 除此之外本树还有一个上游补丁没有覆盖的回移缺陷（"启动容器就自动重启手机"的
 # 根因），由本地补丁 03 修掉，见下方说明。
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-CGROUP_PATCH="$SCRIPT_DIR/patches/droidspaces-4.4-cgroup-prefix.patch"
+CGROUP_PATCH_44="$SCRIPT_DIR/patches/droidspaces-4.4-cgroup-prefix.patch"
 IPCNS_PATCH="$SCRIPT_DIR/patches/droidspaces-4.4-ipcns-user-ns.patch"
 QTAGUID_PATCH_URL="https://raw.githubusercontent.com/ravindu644/Droidspaces-OSS/main/Documentation/resources/kernel-patches/non-GKI/01.fix_kernel_panic_in_xt_qtaguid.patch"
+CGROUP_PATCH_URL="https://raw.githubusercontent.com/ravindu644/Droidspaces-OSS/main/Documentation/resources/kernel-patches/non-GKI/02.fix_restore%20cgroup%20file%20prefix%20handling%20.patch"
+CGROUP_PATCH_TEMP=""
+QTAGUID_PATCH_TEMP=""
+
+cleanup() {
+  [ -z "$CGROUP_PATCH_TEMP" ] || rm -f "$CGROUP_PATCH_TEMP"
+  [ -z "$QTAGUID_PATCH_TEMP" ] || rm -f "$QTAGUID_PATCH_TEMP"
+}
+trap cleanup EXIT
 
 echo "===== 应用 Droidspaces 容器补丁 ====="
 
@@ -64,16 +72,38 @@ fi
 # （cpuset.cpus 变成 cpus），runc/LXC 仍按带前缀的名字打开文件并失败。这里把带前缀
 # 的名字额外做成指向同一文件的符号链接。
 # ---------------------------------------------------------------------------
-if grep -q 'kernfs_create_link(cgrp->kn, ' kernel/cgroup.c; then
-  echo "✓ kernel/cgroup.c 已包含 cgroup 前缀修复，跳过"
+CGROUP_MARKER='kernfs_create_link(cgrp->kn, '
+if [ -f kernel/cgroup.c ]; then
+  CGROUP_FILE="kernel/cgroup.c"
+  CGROUP_PATCH="$CGROUP_PATCH_44"
+elif [ -f kernel/cgroup/cgroup.c ]; then
+  CGROUP_FILE="kernel/cgroup/cgroup.c"
+  CGROUP_PATCH_TEMP=$(mktemp)
+  echo "===== 下载 Droidspaces 上游 cgroup 前缀补丁 ====="
+  curl -fL --retry 3 --retry-delay 5 -o "$CGROUP_PATCH_TEMP" "$CGROUP_PATCH_URL"
+  CGROUP_PATCH="$CGROUP_PATCH_TEMP"
 else
-  git apply --check "$CGROUP_PATCH"
-  git apply "$CGROUP_PATCH"
-  if ! grep -q 'kernfs_create_link(cgrp->kn, ' kernel/cgroup.c; then
-    echo "::error::cgroup 前缀修复未生效（kernel/cgroup.c）"
+  echo "::error::找不到支持的 cgroup 源文件（kernel/cgroup.c 或 kernel/cgroup/cgroup.c）"
+  exit 1
+fi
+
+if grep -q "$CGROUP_MARKER" "$CGROUP_FILE"; then
+  echo "✓ $CGROUP_FILE 已包含 cgroup 前缀修复，跳过"
+else
+  if [ ! -f "$CGROUP_PATCH" ]; then
+    echo "::error::缺少适配当前源码布局的补丁：$CGROUP_PATCH"
     exit 1
   fi
-  echo "✓ kernel/cgroup.c cgroup 前缀修复已应用"
+  if ! git apply --check "$CGROUP_PATCH"; then
+    echo "::error::cgroup 前缀补丁无法应用到 $CGROUP_FILE"
+    exit 1
+  fi
+  git apply "$CGROUP_PATCH"
+  if ! grep -q "$CGROUP_MARKER" "$CGROUP_FILE"; then
+    echo "::error::cgroup 前缀修复未生效（$CGROUP_FILE）"
+    exit 1
+  fi
+  echo "✓ $CGROUP_FILE cgroup 前缀修复已应用"
 fi
 
 # ---------------------------------------------------------------------------
@@ -86,10 +116,13 @@ elif ! grep -q 'dev_get_stats(iface_entry->net_dev' net/netfilter/xt_qtaguid.c; 
   echo "✓ net/netfilter/xt_qtaguid.c 已包含 panic 修复，跳过"
 else
   echo "----- 应用上游补丁 01（xt_qtaguid panic）-----"
-  QTAGUID_PATCH=$(mktemp)
-  trap 'rm -f "$QTAGUID_PATCH"' EXIT
-  curl -fL --retry 3 --retry-delay 5 -o "$QTAGUID_PATCH" "$QTAGUID_PATCH_URL"
-  git apply "$QTAGUID_PATCH"
+  QTAGUID_PATCH_TEMP=$(mktemp)
+  curl -fL --retry 3 --retry-delay 5 -o "$QTAGUID_PATCH_TEMP" "$QTAGUID_PATCH_URL"
+  if ! git apply --check "$QTAGUID_PATCH_TEMP"; then
+    echo "::error::上游 qtaguid 补丁无法应用到当前内核源码"
+    exit 1
+  fi
+  git apply "$QTAGUID_PATCH_TEMP"
   if grep -q 'dev_get_stats(iface_entry->net_dev' net/netfilter/xt_qtaguid.c; then
     echo "::error::xt_qtaguid panic 修复未生效"
     exit 1

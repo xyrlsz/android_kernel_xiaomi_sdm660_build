@@ -3,8 +3,8 @@ set -euo pipefail
 
 KERNEL_MAJOR=$(sed -n 's/^VERSION = //p' Makefile)
 KERNEL_MINOR=$(sed -n 's/^PATCHLEVEL = //p' Makefile)
-if [ "$KERNEL_MAJOR" != "4" ] || [ "$KERNEL_MINOR" != "4" ]; then
-  echo "::error::此 SUSFS inline-hook 脚本仅适用于 Linux 4.4；当前版本为 ${KERNEL_MAJOR:-unknown}.${KERNEL_MINOR:-unknown}"
+if [ "$KERNEL_MAJOR" != "4" ] || { [ "$KERNEL_MINOR" != "4" ] && [ "$KERNEL_MINOR" != "19" ]; }; then
+  echo "::error::此 SUSFS inline-hook 脚本仅支持 Linux 4.4 和 4.19；当前版本为 ${KERNEL_MAJOR:-unknown}.${KERNEL_MINOR:-unknown}"
   exit 1
 fi
 
@@ -66,4 +66,4 @@ for bad in ksu_vfs_read_hook ksu_input_hook ksu_execveat_hook ksu_init_rc_hook; 
   fi
 done
 
-echo "===== SUSFS inline hooks 应用完成 ====="
+echo "===== SUSFS Linux 4.${KERNEL_MINOR} inline hooks 应用完成 ====="

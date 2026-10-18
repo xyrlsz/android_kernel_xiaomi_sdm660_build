@@ -16,7 +16,7 @@ name: Build Kernel for Xiaomi Mi Pad 4 (clover) + Baka-SU + SUSFS inline-hook + 
         required: false
         default: ""
       clang_repo:
-        description: "Clang 仓库 (owner/repo)。sdm660 是 4.4 内核，不能用 clang 16+"
+        description: "Clang 仓库 (owner/repo)。默认内核为 Linux 4.19，建议使用已验证的 clang-r416183b"
         required: true
         default: "LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b"
       clang_branch:
@@ -48,7 +48,7 @@ jobs:
         with:
           path: builder
 
-      # ============ 2. 拉取内核源码（sdm660 / Linux 4.4）============
+      # ============ 2. 拉取内核源码（sdm660 / Linux 4.19）============
       - name: Checkout kernel source
         uses: actions/checkout@v4
         with:
@@ -75,7 +75,7 @@ jobs:
       - name: Setup ccache environment
         run: bash "$GITHUB_WORKSPACE/builder/scripts/01-setup-ccache.sh"
 
-      # ============ 5. 下载 clang（4.4 内核用 clang-r416183b）============
+      # ============ 5. 下载 clang（使用已验证的 clang-r416183b）============
       - name: Setup clang toolchain
         run: bash "$GITHUB_WORKSPACE/builder/scripts/02-setup-clang.sh"
 
@@ -109,10 +109,10 @@ jobs:
         working-directory: ./kernel
         run: bash "$GITHUB_WORKSPACE/builder/scripts/07-integrate-bakasu.sh"
 
-      # ============ 8.8 应用 SUSFS Linux 4.4 移植补丁 ============
-      - name: Apply SUSFS 4.4 patch
+      # ============ 8.8 应用对应内核版本的 SUSFS 移植补丁 ============
+      - name: Apply SUSFS kernel patch
         working-directory: ./kernel
-        run: bash "$GITHUB_WORKSPACE/builder/scripts/08-apply-susfs-4.4-patch.sh"
+        run: bash "$GITHUB_WORKSPACE/builder/scripts/08-apply-susfs-patch.sh"
 
       # ============ 8.9 应用 SUSFS inline hooks ============
       - name: Apply SUSFS inline hooks
