@@ -6,11 +6,85 @@ export CLANG_TRIPLE=aarch64-linux-gnu-
 export CROSS_COMPILE=aarch64-linux-android-
 export CROSS_COMPILE_ARM32=arm-linux-androideabi-
 
-make O=out ARCH=arm64 SUBARCH=arm64 \
-  CC="ccache clang" \
-  HOSTCC="ccache clang" \
-  KCFLAGS="-gdwarf-4" \
-  "$DEFCONFIG_PATH"
+CONFIG_ROOT="arch/arm64/configs"
+CONFIG_INPUT="${DEFCONFIG_PATH:-}"
+if [ -z "$CONFIG_INPUT" ]; then
+  echo "::error::未设置 DEFCONFIG_PATH；请指定 *_defconfig 或 .config 配置片段"
+  exit 1
+fi
+
+case "$CONFIG_INPUT" in
+  "$CONFIG_ROOT"/*)
+    CONFIG_INPUT="${CONFIG_INPUT#"$CONFIG_ROOT"/}"
+    ;;
+  arch/arm64/configs/*)
+    CONFIG_INPUT="${CONFIG_INPUT#arch/arm64/configs/}"
+    ;;
+esac
+
+case "$CONFIG_INPUT" in
+  /*|..|../*|*/../*|*/..)
+    echo "::error::配置路径必须位于 $CONFIG_ROOT 目录内：$DEFCONFIG_PATH"
+    exit 1
+    ;;
+esac
+
+CONFIG_FILE="$CONFIG_ROOT/$CONFIG_INPUT"
+if [ ! -f "$CONFIG_FILE" ]; then
+  case "$CONFIG_INPUT" in
+    */*)
+      echo "::error::找不到配置文件：$CONFIG_FILE"
+      exit 1
+      ;;
+  esac
+
+  mapfile -t CONFIG_MATCHES < <(find "$CONFIG_ROOT" -type f -name "$CONFIG_INPUT" -print | sort)
+  if [ "${#CONFIG_MATCHES[@]}" -eq 0 ]; then
+    echo "::error::在 $CONFIG_ROOT 下找不到配置文件：$CONFIG_INPUT"
+    exit 1
+  elif [ "${#CONFIG_MATCHES[@]}" -gt 1 ]; then
+    echo "::error::配置文件名不唯一，请指定相对路径。匹配结果："
+    printf '  %s\n' "${CONFIG_MATCHES[@]}"
+    exit 1
+  fi
+  CONFIG_FILE="${CONFIG_MATCHES[0]}"
+fi
+
+CONFIG_RELATIVE_PATH="${CONFIG_FILE#"$CONFIG_ROOT"/}"
+case "$CONFIG_FILE" in
+  *_defconfig)
+    CONFIG_TARGET="${CONFIG_RELATIVE_PATH}"
+    echo "===== 使用 defconfig: $CONFIG_FILE ====="
+    make O=out ARCH=arm64 SUBARCH=arm64 \
+      CC="ccache clang" \
+      HOSTCC="ccache clang" \
+      KCFLAGS="-gdwarf-4" \
+      "$CONFIG_TARGET"
+    ;;
+  *.config)
+    BASE_DEFCONFIG="vendor/xiaomi/sdm660_defconfig"
+    if [ ! -f "$CONFIG_ROOT/$BASE_DEFCONFIG" ]; then
+      echo "::error::配置片段 $CONFIG_FILE 需要基础配置，但找不到 $CONFIG_ROOT/$BASE_DEFCONFIG"
+      exit 1
+    fi
+    if [ ! -f scripts/kconfig/merge_config.sh ]; then
+      echo "::error::找不到 scripts/kconfig/merge_config.sh，无法合并配置片段"
+      exit 1
+    fi
+    echo "===== 使用基础 defconfig: $BASE_DEFCONFIG ====="
+    make O=out ARCH=arm64 SUBARCH=arm64 \
+      CC="ccache clang" \
+      HOSTCC="ccache clang" \
+      KCFLAGS="-gdwarf-4" \
+      "$BASE_DEFCONFIG"
+    echo "===== 合并配置片段: $CONFIG_FILE ====="
+    bash scripts/kconfig/merge_config.sh -m -O out out/.config "$CONFIG_FILE"
+    ;;
+  *)
+    echo "::error::不支持的配置文件类型：$CONFIG_FILE（应为 *_defconfig 或 *.config）"
+    exit 1
+    ;;
+esac
 
 CFG="out/.config"
 

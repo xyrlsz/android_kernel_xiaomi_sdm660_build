@@ -6,11 +6,11 @@ name: Build Kernel for Xiaomi Mi Pad 4 (clover) + Baka-SU + SUSFS inline-hook + 
       kernel_branch:
         description: "Kernel branch to build"
         required: true
-        default: "16.0"
+        default: "17.0"
       defconfig_path:
-        description: "Path/name of defconfig (relative to kernel root)"
+        description: "Defconfig or config fragment path (relative to kernel root or arch/arm64/configs)"
         required: true
-        default: "clover_defconfig"
+        default: "arch/arm64/configs/vendor/xiaomi/clover.config"
       bakasu_tag:
         description: "Baka-SU tag/ref (留空使用 main 分支最新提交)"
         required: false
